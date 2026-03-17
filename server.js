@@ -13,28 +13,27 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ================== FIX RAILWAY ==================
+// ===== Railway Fix =====
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
-// ================== AUTO FOLDER ==================
+// ===== Auto Folder =====
 if (!fs.existsSync('public/challenges')) {
     fs.mkdirSync('public/challenges', { recursive: true });
 }
 
-// ================== DATABASE ==================
+// ===== Database =====
 const db = require('./config/database');
 
-// ================== SECURITY ==================
+// ===== Security =====
 app.use(helmet({ contentSecurityPolicy: false }));
 
-const limiter = rateLimit({
+app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100
-});
-app.use('/api/', limiter);
+}));
 
-// ================== MIDDLEWARE ==================
+// ===== Middleware =====
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
@@ -46,9 +45,9 @@ app.use(fileUpload({
 app.use(express.static('public'));
 app.use('/challenges', express.static('public/challenges'));
 
-// ================== SESSION ==================
+// ===== Session =====
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'fallback-secret',
+    secret: process.env.SESSION_SECRET || 'secret123',
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -60,46 +59,34 @@ app.use(session({
 
 app.use(flash());
 
-// ================== VIEW ENGINE ==================
+// ===== View =====
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ================== GLOBAL VARIABLES ==================
+// ===== Global Vars =====
 app.use((req, res, next) => {
     res.locals.user = req.session.user || null;
 
     const success = req.flash('success');
     const error = req.flash('error');
 
-    res.locals.success_msg = success.length ? success[0] : null;
-    res.locals.error_msg = error.length ? error[0] : null;
-
-    res.locals.currentTheme = req.session.theme || 'dark';
+    res.locals.success_msg = success[0] || null;
+    res.locals.error_msg = error[0] || null;
 
     const p = req.path;
 
-    if (p === '/') {
-        res.locals.activePage = 'home';
-    } else if (p.startsWith('/challenges')) {
-        res.locals.activePage = 'challenges';
-    } else if (p.startsWith('/scoreboard')) {
-        res.locals.activePage = 'scoreboard';
-    } else if (p.startsWith('/teams')) {
-        res.locals.activePage = 'team';
-    } else if (p.startsWith('/profile')) {
-        res.locals.activePage = 'profile';
-    } else if (p.startsWith('/admin')) {
-        res.locals.activePage = 'admin';
-    } else if (p.startsWith('/404')) {
-        res.locals.activePage = '404';
-    } else {
-        res.locals.activePage = 'home';
-    }
+    if (p === '/') res.locals.activePage = 'home';
+    else if (p.startsWith('/challenges')) res.locals.activePage = 'challenges';
+    else if (p.startsWith('/scoreboard')) res.locals.activePage = 'scoreboard';
+    else if (p.startsWith('/teams')) res.locals.activePage = 'team';
+    else if (p.startsWith('/profile')) res.locals.activePage = 'profile';
+    else if (p.startsWith('/admin')) res.locals.activePage = 'admin';
+    else res.locals.activePage = 'home';
 
     next();
 });
 
-// ================== DATABASE INIT ==================
+// ===== DATABASE INIT =====
 db.serialize(() => {
 
     db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -160,378 +147,73 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // ADMIN DEFAULT
-    db.get("SELECT * FROM users WHERE role = 'admin'", async (err, admin) => {
-        if (!admin) {
-            const hashed = await bcrypt.hash('admin123', 10);
+    // Default admin
+    db.get("SELECT * FROM users WHERE role = 'admin'", async (err, row) => {
+        if (!row) {
+            const hash = await bcrypt.hash('admin123', 10);
             db.run(
                 "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
-                ['admin', 'admin@vivy.ctf', hashed, 'admin']
+                ['admin', 'admin@ctf.local', hash, 'admin']
             );
             console.log('Admin created: admin / admin123');
         }
     });
 });
 
-// ================== SAFE ROUTE LOADER ==================
-function safeRoute(pathUrl, routeFile) {
+// ===== SAFE ROUTES =====
+function loadRoute(url, file) {
     try {
-        app.use(pathUrl, require(routeFile));
-        console.log(`Loaded route: ${pathUrl}`);
+        app.use(url, require(file));
+        console.log(`Loaded ${url}`);
     } catch (err) {
-        console.error(`FAILED load ${routeFile}:`, err.message);
+        console.error(`Error load ${file}:`, err.message);
     }
 }
 
-safeRoute('/', './routes/authRoutes');
-safeRoute('/challenges', './routes/challengeRoutes');
-safeRoute('/teams', './routes/teamRoutes');
-safeRoute('/scoreboard', './routes/scoreboardRoutes');
-safeRoute('/admin', './routes/adminRoutes');
+loadRoute('/', './routes/authRoutes');
+loadRoute('/challenges', './routes/challengeRoutes');
+loadRoute('/teams', './routes/teamRoutes');
+loadRoute('/scoreboard', './routes/scoreboardRoutes');
+loadRoute('/admin', './routes/adminRoutes');
 
-// ================== HOME ==================
+// ===== HOME =====
 app.get('/', (req, res) => {
     res.render('index', { title: 'VIVY CTF V2' });
 });
 
-// ================== API ==================
+// ===== API =====
 app.get('/api/stats', (req, res) => {
     db.get(`
         SELECT 
-            (SELECT COUNT(*) FROM users) as total_users,
-            (SELECT COUNT(*) FROM challenges) as total_challenges,
-            (SELECT COUNT(*) FROM solves) as total_solves,
-            (SELECT COUNT(*) FROM teams) as total_teams
-    `, (err, stats) => {
+        (SELECT COUNT(*) FROM users) as users,
+        (SELECT COUNT(*) FROM challenges) as challenges,
+        (SELECT COUNT(*) FROM solves) as solves,
+        (SELECT COUNT(*) FROM teams) as teams
+    `, (err, data) => {
         if (err) return res.json({ success: false, error: err.message });
-        res.json({ success: true, stats });
+        res.json({ success: true, data });
     });
 });
 
-// ================== 404 ==================
+// ===== 404 =====
 app.use((req, res) => {
-    res.status(404).render('404', { title: '404 Not Found' });
+    res.status(404).render('404', { title: 'Not Found' });
 });
 
-// ================== 500 ==================
+// ===== 500 =====
 app.use((err, req, res, next) => {
-    console.error('SERVER ERROR:', err);
-
+    console.error(err);
     res.status(500).render('500', {
-        title: 'Server Error',
-        error: err.message || err.toString(),
-        errorStack: err.stack || null
+        title: 'Error',
+        error: err.message
     });
 });
 
-// ================== GLOBAL ERROR ==================
-process.on('uncaughtException', (err) => {
-    console.error('UNCAUGHT:', err);
-});
+// ===== GLOBAL ERROR =====
+process.on('uncaughtException', err => console.error(err));
+process.on('unhandledRejection', err => console.error(err));
 
-process.on('unhandledRejection', (err) => {
-    console.error('UNHANDLED:', err);
-});
-
-// ================== START ==================
+// ===== START =====
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});        password TEXT,
-        creator_id INTEGER,
-        description TEXT,
-        type TEXT DEFAULT 'open',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS challenges (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
-        description TEXT,
-        category TEXT,
-        points INTEGER,
-        flag TEXT,
-        file_path TEXT,
-        visible BOOLEAN DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS solves (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        challenge_id INTEGER,
-        team_id INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS team_activity (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        team_id INTEGER,
-        user_id INTEGER,
-        action TEXT,
-        performed_by INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS join_requests (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        team_id INTEGER,
-        user_id INTEGER,
-        message TEXT,
-        status TEXT DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // ADMIN DEFAULT
-    db.get("SELECT * FROM users WHERE role = 'admin'", async (err, admin) => {
-        if (!admin) {
-            const hashed = await bcrypt.hash('admin123', 10);
-            db.run(
-                "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
-                ['admin', 'admin@vivy.ctf', hashed, 'admin']
-            );
-            console.log('Admin created: admin / admin123');
-        }
-    });
-});
-
-// ================== ROUTES SAFE LOAD ==================
-function safeRoute(path, route) {
-    try {
-        app.use(path, require(route));
-        console.log(`Loaded route: ${path}`);
-    } catch (err) {
-        console.error(`FAILED load ${route}:`, err.message);
-    }
-}
-
-safeRoute('/', './routes/authRoutes');
-safeRoute('/challenges', './routes/challengeRoutes');
-safeRoute('/teams', './routes/teamRoutes');
-safeRoute('/scoreboard', './routes/scoreboardRoutes');
-safeRoute('/admin', './routes/adminRoutes');
-
-// ================== HOME ==================
-app.get('/', (req, res) => {
-    res.render('index', { title: 'VIVY CTF V2' });
-});
-
-// ================== API ==================
-app.get('/api/stats', (req, res) => {
-    db.get(`
-        SELECT 
-            (SELECT COUNT(*) FROM users) as total_users,
-            (SELECT COUNT(*) FROM challenges) as total_challenges,
-            (SELECT COUNT(*) FROM solves) as total_solves,
-            (SELECT COUNT(*) FROM teams) as total_teams
-    `, (err, stats) => {
-        if (err) return res.json({ success: false, error: err.message });
-        res.json({ success: true, stats });
-    });
-});
-
-// ================== 404 ==================
-app.use((req, res) => {
-    res.status(404).render('404', { title: '404 Not Found' });
-});
-
-// ================== 500 ==================
-app.use((err, req, res, next) => {
-    console.error('SERVER ERROR:', err);
-
-    res.status(500).render('500', {
-        title: 'Server Error',
-        error: err.message || err.toString(),
-        errorStack: err.stack || null
-    });
-});
-
-// ================== GLOBAL ERROR ==================
-process.on('uncaughtException', (err) => {
-    console.error('UNCAUGHT:', err);
-});
-
-process.on('unhandledRejection', (err) => {
-    console.error('UNHANDLED:', err);
-});
-
-// ================== START ==================
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});        res.locals.activePage = 'api';
-    } else if (path === '/404' || path.startsWith('/404')) {
-        res.locals.activePage = '404';
-    } else {
-        res.locals.activePage = path.split('/')[1] || 'home';
-    }
-    
-    next();
-});
-
-// ================== DATABASE INIT ==================
-db.serialize(() => {
-
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT DEFAULT 'user',
-        team_id INTEGER,
-        failed_attempts INTEGER DEFAULT 0,
-        locked_until TEXT,
-        reset_token TEXT,
-        reset_expires TEXT,
-        theme_preference TEXT DEFAULT 'dark',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (team_id) REFERENCES teams(id)
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS teams (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        creator_id INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (creator_id) REFERENCES users(id)
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS challenges (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        description TEXT NOT NULL,
-        category TEXT NOT NULL,
-        points INTEGER NOT NULL,
-        flag TEXT NOT NULL,
-        file_path TEXT,
-        visible BOOLEAN DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS solves (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        challenge_id INTEGER NOT NULL,
-        team_id INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (challenge_id) REFERENCES challenges(id),
-        FOREIGN KEY (team_id) REFERENCES teams(id),
-        UNIQUE(user_id, challenge_id)
-    )`);
-
-    // Create admin default
-    db.get("SELECT * FROM users WHERE role = 'admin'", async (err, admin) => {
-        if (!admin) {
-            const hashedPassword = await bcrypt.hash('admin123', 10);
-            db.run(
-                "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
-                ['admin', 'admin@vivy.ctf', hashedPassword, 'admin']
-            );
-            console.log('Admin created: admin / admin123');
-        }
-    });
-});
-
-// ================== ROUTES ==================
-app.use('/', require('./routes/authRoutes'));
-app.use('/challenges', require('./routes/challengeRoutes'));
-app.use('/teams', require('./routes/teamRoutes'));
-app.use('/scoreboard', require('./routes/scoreboardRoutes'));
-app.use('/admin', require('./routes/adminRoutes'));
-
-// ================== API ==================
-app.get('/api/stats', (req, res) => {
-    db.get(`
-        SELECT 
-            (SELECT COUNT(*) FROM users) as total_users,
-            (SELECT COUNT(*) FROM challenges) as total_challenges,
-            (SELECT COUNT(*) FROM solves) as total_solves,
-            (SELECT COUNT(*) FROM teams) as total_teams
-    `, (err, stats) => {
-        if (err) return res.json({ success: false });
-        res.json({ success: true, stats });
-    });
-});
-
-app.get('/api/recent-activity', (req, res) => {
-    db.all(`
-        SELECT users.username, challenges.title, solves.created_at
-        FROM solves
-        JOIN users ON solves.user_id = users.id
-        JOIN challenges ON solves.challenge_id = challenges.id
-        ORDER BY solves.created_at DESC
-        LIMIT 10
-    `, (err, rows) => {
-        if (err) return res.json({ success: false });
-
-        const activities = rows.map(r => ({
-            username: r.username,
-            action: "solved",
-            target: r.title,
-            type: "solve",
-            timestamp: r.created_at
-        }));
-
-        res.json({ success: true, activities });
-    });
-});
-
-// ================== HOME ==================
-app.get('/', (req, res) => {
-    res.render('index', {
-        title: 'VIVY CTF V2'
-        // activePage is automatically set by middleware to 'home'
-    });
-});
-
-// ================== THEME ==================
-app.post('/theme', (req, res) => {
-    const { theme } = req.body;
-    const validThemes = ['dark', 'hacker', 'neon'];
-
-    if (validThemes.includes(theme)) {
-        req.session.theme = theme;
-    }
-
-    res.redirect('back');
-});
-
-// ================== HEALTH ==================
-app.get('/health', (req, res) => {
-    res.status(200).send('OK');
-});
-
-// ================== ERROR HANDLER ==================
-// 404 handler
-app.use((req, res) => {
-    res.status(404).render('404', { 
-        title: '404 Not Found - VIVY V2'
-        // All other variables come from res.locals
-    });
-});
-
-// 500 error handler
-app.use((err, req, res, next) => {
-    console.error('SERVER ERROR:', err.stack);
-    
-    res.status(500).render('500', {
-        title: 'Server Error - VIVY V2',
-        error: process.env.NODE_ENV === 'development' ? err.message : {},
-        errorStack: process.env.NODE_ENV === 'development' ? err.stack : null
-        // user, success_msg, error_msg, currentTheme, activePage come from res.locals
-    });
-});
-
-// ================== GLOBAL ERROR ==================
-process.on('uncaughtException', (err) => {
-    console.error('UNCAUGHT EXCEPTION:', err);
-});
-
-process.on('unhandledRejection', (err) => {
-    console.error('UNHANDLED REJECTION:', err);
-});
-
-// ================== START ==================
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`Server running on ${PORT}`);
 });
