@@ -63,36 +63,14 @@ class User {
 
     static async getStats(userId) {
         return new Promise((resolve, reject) => {
-            db.get(`
-                SELECT 
-                    COUNT(*) as solves
-                FROM solves 
-                WHERE user_id = ?
-            `, [userId], (err, row) => {
-                if (err) reject(err);
-                else resolve(row || { solves: 0 });
-            });
-        });
-    }
-}
-
-module.exports = User;        });
-    }
-
-    // ================= STATS =================
-    static async getStats(userId) {
-        return new Promise((resolve, reject) => {
-            db.get(`
-                SELECT 
-                    COUNT(DISTINCT challenge_id) as solves,
-                    COALESCE(SUM(challenges.points), 0) as total_points
-                FROM solves 
-                LEFT JOIN challenges ON solves.challenge_id = challenges.id
-                WHERE solves.user_id = ?
-            `, [userId], (err, row) => {
-                if (err) reject(err);
-                else resolve(row || { solves: 0, total_points: 0 });
-            });
+            db.get(
+                'SELECT COUNT(*) as solves FROM solves WHERE user_id = ?',
+                [userId],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row || { solves: 0 });
+                }
+            );
         });
     }
 }
