@@ -202,10 +202,16 @@ app.use((req, res) => {
 
 // ===== 500 =====
 app.use((err, req, res, next) => {
-    console.error(err);
+    console.error('SERVER ERROR:', err);
+
     res.status(500).render('500', {
-        title: 'Error',
-        error: err.message
+        title: 'Server Error',
+        error: err.message || err.toString(),
+        errorStack: err.stack || null,
+
+        // ✅ FIX PENTING
+        currentTheme: req.session?.theme || 'dark',
+        user: req.session?.user || null
     });
 });
 
