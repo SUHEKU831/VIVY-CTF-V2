@@ -72,9 +72,17 @@ app.set('views', path.join(__dirname, 'views'));
 
 // ================== GLOBAL VARIABLES ==================
 app.use((req, res, next) => {
+    // Set user
     res.locals.user = req.session.user || null;
-    res.locals.success = req.flash('success');
-    res.locals.error = req.flash('error');
+    
+    // Set flash messages - use the names expected by header.ejs
+    const success = req.flash('success');
+    const error = req.flash('error');
+    
+    res.locals.success_msg = success.length > 0 ? success[0] : null;
+    res.locals.error_msg = error.length > 0 ? error[0] : null;
+    
+    // Set theme
     res.locals.currentTheme = req.session.theme || 'dark';
     
     // Set activePage based on the current route
@@ -97,6 +105,8 @@ app.use((req, res, next) => {
         res.locals.activePage = 'register';
     } else if (path.startsWith('/api')) {
         res.locals.activePage = 'api';
+    } else if (path === '/404' || path.startsWith('/404')) {
+        res.locals.activePage = '404';
     } else {
         res.locals.activePage = path.split('/')[1] || 'home';
     }
@@ -217,7 +227,7 @@ app.get('/api/recent-activity', (req, res) => {
 app.get('/', (req, res) => {
     res.render('index', {
         title: 'VIVY CTF V2'
-        // activePage is automatically set by middleware
+        // activePage is automatically set by middleware to 'home'
     });
 });
 
@@ -242,23 +252,20 @@ app.get('/health', (req, res) => {
 // 404 handler
 app.use((req, res) => {
     res.status(404).render('404', { 
-        title: '404 Not Found'
-        // activePage is automatically set by middleware to '404'
+        title: '404 Not Found - VIVY V2'
+        // All other variables come from res.locals
     });
 });
 
 // 500 error handler
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    
-    // Set error page specific variables
-    res.locals.activePage = 'error'; // Override the middleware for error pages
+    console.error('SERVER ERROR:', err.stack);
     
     res.status(500).render('500', {
         title: 'Server Error - VIVY V2',
         error: process.env.NODE_ENV === 'development' ? err.message : {},
         errorStack: process.env.NODE_ENV === 'development' ? err.stack : null
-        // user, success, error, currentTheme are from res.locals
+        // user, success_msg, error_msg, currentTheme, activePage come from res.locals
     });
 });
 
