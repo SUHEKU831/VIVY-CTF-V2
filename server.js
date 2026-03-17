@@ -76,6 +76,31 @@ app.use((req, res, next) => {
     res.locals.success = req.flash('success');
     res.locals.error = req.flash('error');
     res.locals.currentTheme = req.session.theme || 'dark';
+    
+    // Set activePage based on the current route
+    const path = req.path;
+    if (path === '/') {
+        res.locals.activePage = 'home';
+    } else if (path.startsWith('/challenges')) {
+        res.locals.activePage = 'challenges';
+    } else if (path.startsWith('/scoreboard')) {
+        res.locals.activePage = 'scoreboard';
+    } else if (path.startsWith('/teams')) {
+        res.locals.activePage = 'team';
+    } else if (path.startsWith('/profile')) {
+        res.locals.activePage = 'profile';
+    } else if (path.startsWith('/admin')) {
+        res.locals.activePage = 'admin';
+    } else if (path.startsWith('/login')) {
+        res.locals.activePage = 'login';
+    } else if (path.startsWith('/register')) {
+        res.locals.activePage = 'register';
+    } else if (path.startsWith('/api')) {
+        res.locals.activePage = 'api';
+    } else {
+        res.locals.activePage = path.split('/')[1] || 'home';
+    }
+    
     next();
 });
 
@@ -191,8 +216,8 @@ app.get('/api/recent-activity', (req, res) => {
 // ================== HOME ==================
 app.get('/', (req, res) => {
     res.render('index', {
-        title: 'VIVY CTF V2',
-        activePage: 'home'
+        title: 'VIVY CTF V2'
+        // activePage is automatically set by middleware
     });
 });
 
@@ -214,15 +239,26 @@ app.get('/health', (req, res) => {
 });
 
 // ================== ERROR HANDLER ==================
+// 404 handler
 app.use((req, res) => {
-    res.status(404).render('404', { title: '404 Not Found' });
+    res.status(404).render('404', { 
+        title: '404 Not Found'
+        // activePage is automatically set by middleware to '404'
+    });
 });
 
+// 500 error handler
 app.use((err, req, res, next) => {
     console.error(err.stack);
+    
+    // Set error page specific variables
+    res.locals.activePage = 'error'; // Override the middleware for error pages
+    
     res.status(500).render('500', {
-        title: 'Server Error',
-        error: process.env.NODE_ENV === 'development' ? err.message : {}
+        title: 'Server Error - VIVY V2',
+        error: process.env.NODE_ENV === 'development' ? err.message : {},
+        errorStack: process.env.NODE_ENV === 'development' ? err.stack : null
+        // user, success, error, currentTheme are from res.locals
     });
 });
 
