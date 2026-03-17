@@ -1,0 +1,359 @@
+<%- include('layout/header') %>
+
+<div class="hero-section">
+    <div class="hero-content">
+        <h1 class="glitch" data-text="VIVY CTF V2">VIVY CTF V2</h1>
+        <p class="hero-subtitle">Where Security Meets Reality</p>
+        
+        <div class="hero-stats">
+            <div class="stat-card">
+                <i class="fas fa-flag"></i>
+                <span class="stat-value">Multiple Categories</span>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-users"></i>
+                <span class="stat-value">Team Play</span>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-tachometer-alt"></i>
+                <span class="stat-value">Real-time Scoreboard</span>
+            </div>
+        </div>
+
+        <% if (!user) { %>
+            <div class="hero-buttons">
+                <a href="/register" class="btn btn-primary">
+                    <i class="fas fa-user-plus"></i> Get Started
+                </a>
+                <a href="/login" class="btn btn-secondary">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </a>
+            </div>
+        <% } else { %>
+            <div class="hero-buttons">
+                <a href="/challenges" class="btn btn-primary">
+                    <i class="fas fa-flag"></i> Start Hacking
+                </a>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<div class="features-section">
+    <h2>Platform Features</h2>
+    <div class="features-grid">
+        <div class="feature-card">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Secure Environment</h3>
+            <p>Enterprise-grade security with CSRF protection, rate limiting, and secure sessions</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-paint-brush"></i>
+            <h3>Multiple Themes</h3>
+            <p>Choose from Dark, Hacker, or Neon themes to suit your style</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-chart-line"></i>
+            <h3>Live Scoreboard</h3>
+            <p>Real-time updates with team and individual rankings</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-file-code"></i>
+            <h3>File Downloads</h3>
+            <p>Upload and manage challenge files securely</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-trophy"></i>
+            <h3>First Blood System</h3>
+            <p>Track who solved each challenge first</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-crown"></i>
+            <h3>Admin Panel</h3>
+            <p>Comprehensive management interface for challenges and users</p>
+        </div>
+    </div>
+</div>
+
+<div class="stats-section">
+    <h2>Live Statistics</h2>
+    <div class="stats-grid" id="liveStats">
+        <div class="stat-item">
+            <i class="fas fa-users"></i>
+            <span class="stat-number">0</span>
+            <span class="stat-label">Active Users</span>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-flag"></i>
+            <span class="stat-number">0</span>
+            <span class="stat-label">Challenges</span>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-trophy"></i>
+            <span class="stat-number">0</span>
+            <span class="stat-label">Total Solves</span>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-users-cog"></i>
+            <span class="stat-number">0</span>
+            <span class="stat-label">Teams</span>
+        </div>
+    </div>
+</div>
+
+<div class="recent-activity-section">
+    <h2>Recent Activity</h2>
+    <div class="activity-feed" id="recentActivity">
+        <!-- Activity akan di-load via JavaScript -->
+        <div class="loading-spinner">
+            <i class="fas fa-circle-notch fa-spin"></i> Loading recent activity...
+        </div>
+    </div>
+</div>
+
+<script>
+// Fetch live statistics
+async function fetchStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.querySelector('.stat-item:nth-child(1) .stat-number').textContent = data.stats.total_users || 0;
+            document.querySelector('.stat-item:nth-child(2) .stat-number').textContent = data.stats.total_challenges || 0;
+            document.querySelector('.stat-item:nth-child(3) .stat-number').textContent = data.stats.total_solves || 0;
+            document.querySelector('.stat-item:nth-child(4) .stat-number').textContent = data.stats.total_teams || 0;
+        }
+    } catch (error) {
+        console.error('Error fetching stats:', error);
+    }
+}
+
+// Fetch recent activity
+async function fetchRecentActivity() {
+    try {
+        const response = await fetch('/api/recent-activity');
+        const data = await response.json();
+        
+        const activityFeed = document.getElementById('recentActivity');
+        
+        if (data.success && data.activities.length > 0) {
+            activityFeed.innerHTML = data.activities.map(activity => `
+                <div class="activity-item">
+                    <i class="fas ${getActivityIcon(activity.type)}"></i>
+                    <div class="activity-content">
+                        <span class="activity-user">${activity.username}</span>
+                        <span class="activity-action">${activity.action}</span>
+                        <span class="activity-target">${activity.target}</span>
+                        <span class="activity-time">${timeAgo(activity.timestamp)}</span>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            activityFeed.innerHTML = '<p class="no-activity">No recent activity</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching activity:', error);
+        document.getElementById('recentActivity').innerHTML = '<p class="error">Failed to load activity</p>';
+    }
+}
+
+function getActivityIcon(type) {
+    const icons = {
+        'solve': 'fa-flag-checkered',
+        'register': 'fa-user-plus',
+        'join': 'fa-users',
+        'create': 'fa-plus-circle'
+    };
+    return icons[type] || 'fa-clock';
+}
+
+function timeAgo(timestamp) {
+    const seconds = Math.floor((new Date() - new Date(timestamp)) / 1000);
+    
+    const intervals = {
+        year: 31536000,
+        month: 2592000,
+        week: 604800,
+        day: 86400,
+        hour: 3600,
+        minute: 60,
+        second: 1
+    };
+    
+    for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+        const interval = Math.floor(seconds / secondsInUnit);
+        if (interval >= 1) {
+            return interval === 1 ? `1 ${unit} ago` : `${interval} ${unit}s ago`;
+        }
+    }
+    return 'just now';
+}
+
+// Auto-refresh stats every 30 seconds
+fetchStats();
+fetchRecentActivity();
+setInterval(fetchStats, 30000);
+setInterval(fetchRecentActivity, 60000);
+</script>
+
+<style>
+.stats-section {
+    margin: 4rem 0;
+    text-align: center;
+}
+
+.stats-section h2 {
+    margin-bottom: 2rem;
+    color: var(--accent-primary);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.stat-item {
+    background-color: var(--card-bg);
+    padding: 2rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent-primary);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+}
+
+.stat-item i {
+    font-size: 2.5rem;
+    color: var(--accent-primary);
+    margin-bottom: 1rem;
+}
+
+.stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.stat-label {
+    color: var(--text-secondary);
+}
+
+.recent-activity-section {
+    margin: 4rem 0;
+}
+
+.recent-activity-section h2 {
+    margin-bottom: 2rem;
+    color: var(--accent-primary);
+}
+
+.activity-feed {
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    transition: all 0.3s ease;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-item:hover {
+    background-color: var(--bg-secondary);
+}
+
+.activity-item i {
+    width: 2rem;
+    font-size: 1.2rem;
+    color: var(--accent-primary);
+    margin-right: 1rem;
+}
+
+.activity-content {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.activity-user {
+    font-weight: bold;
+    color: var(--accent-primary);
+}
+
+.activity-action {
+    color: var(--text-secondary);
+}
+
+.activity-target {
+    color: var(--text-primary);
+}
+
+.activity-time {
+    margin-left: auto;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+.loading-spinner i {
+    margin-right: 0.5rem;
+}
+
+.no-activity, .error {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+.error {
+    color: var(--error);
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .activity-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .activity-item i {
+        margin-bottom: 0.5rem;
+    }
+    
+    .activity-time {
+        margin-left: 0;
+        width: 100%;
+        text-align: left;
+    }
+}
+</style>
+
+<%- include('layout/footer') %>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/themes/<%= currentTheme %>.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <span class="vivy-text">VIVY</span>
+                <span class="v2-text">V2</span>
+            </a>
+            
+            <div class="nav-menu">
+                <a href="/" class="<%= activePage === 'home' ? 'active' : '' %>">
+                    <i class="fas fa-home"></i> Home
+                </a>
+                <% if (user) { %>
+                    <a href="/challenges" class="<%= activePage === 'challenges' ? 'active' : '' %>">
+                        <i class="fas fa-flag"></i> Challenges
+                    </a>
+                    <a href="/scoreboard" class="<%= activePage === 'scoreboard' ? 'active' : '' %>">
+                        <i class="fas fa-trophy"></i> Scoreboard
+                    </a>
+                    <a href="/teams" class="<%= activePage === 'team' ? 'active' : '' %>">
+                        <i class="fas fa-users"></i> Team
+                    </a>
+                    <% if (user.role === 'admin') { %>
+                        <a href="/admin/dashboard" class="<%= activePage === 'admin' ? 'active' : '' %>">
+                            <i class="fas fa-crown"></i> Admin
+                        </a>
+                    <% } %>
+                    <a href="/profile" class="<%= activePage === 'profile' ? 'active' : '' %>">
+                        <i class="fas fa-user"></i> Profile
+                    </a>
+                    <a href="/logout">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                <% } else { %>
+                    <a href="/login" class="<%= activePage === 'login' ? 'active' : '' %>">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                    <a href="/register" class="<%= activePage === 'register' ? 'active' : '' %>">
+                        <i class="fas fa-user-plus"></i> Register
+                    </a>
+                <% } %>
+                
+                <div class="theme-switcher">
+                    <form method="POST" action="/theme" id="themeForm">
+                        <select name="theme" onchange="this.form.submit()">
+                            <option value="dark" <%= currentTheme === 'dark' ? 'selected' : '' %>>Dark</option>
+                            <option value="hacker" <%= currentTheme === 'hacker' ? 'selected' : '' %>>Hacker</option>
+                            <option value="neon" <%= currentTheme === 'neon' ? 'selected' : '' %>>Neon</option>
+                        </select>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <% if (success_msg && success_msg.length > 0) { %>
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i>
+                <%= success_msg %>
+            </div>
+        <% } %>
+        
+        <% if (error_msg && error_msg.length > 0) { %>
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <%= error_msg %>
+            </div>
+        <% } %>
