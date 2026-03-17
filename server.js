@@ -65,7 +65,10 @@ app.set('views', path.join(__dirname, 'views'));
 
 // ===== Global Vars =====
 app.use((req, res, next) => {
-    res.locals.user = req.session.user || null;
+    res.locals.user = req.session?.user || null;
+
+    // ✅ INI YANG KURANG
+    res.locals.currentTheme = req.session?.theme || 'dark';
 
     const success = req.flash('success');
     const error = req.flash('error');
