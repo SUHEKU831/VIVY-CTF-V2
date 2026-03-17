@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
 
-// Auto create folder (biar ga crash di Railway)
+// ================== AUTO FOLDER ==================
 if (!fs.existsSync('public/challenges')) {
     fs.mkdirSync('public/challenges', { recursive: true });
 }
@@ -26,9 +26,7 @@ if (!fs.existsSync('public/challenges')) {
 const db = require('./config/database');
 
 // ================== SECURITY ==================
-app.use(helmet({
-    contentSecurityPolicy: false,
-}));
+app.use(helmet({ contentSecurityPolicy: false }));
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -49,16 +47,12 @@ app.use(express.static('public'));
 app.use('/challenges', express.static('public/challenges'));
 
 // ================== SESSION ==================
-if (!process.env.SESSION_SECRET) {
-    console.warn("⚠️ SESSION_SECRET not set!");
-}
-
 app.use(session({
     secret: process.env.SESSION_SECRET || 'fallback-secret',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: false, // IMPORTANT: Railway fix
         httpOnly: true,
         maxAge: 1000 * 60 * 60 * 24
     }
@@ -72,39 +66,166 @@ app.set('views', path.join(__dirname, 'views'));
 
 // ================== GLOBAL VARIABLES ==================
 app.use((req, res, next) => {
-    // Set user
     res.locals.user = req.session.user || null;
-    
-    // Set flash messages - use the names expected by header.ejs
+
     const success = req.flash('success');
     const error = req.flash('error');
-    
-    res.locals.success_msg = success.length > 0 ? success[0] : null;
-    res.locals.error_msg = error.length > 0 ? error[0] : null;
-    
-    // Set theme
+
+    res.locals.success_msg = success.length ? success[0] : null;
+    res.locals.error_msg = error.length ? error[0] : null;
+
     res.locals.currentTheme = req.session.theme || 'dark';
-    
-    // Set activePage based on the current route
-    const path = req.path;
-    if (path === '/') {
-        res.locals.activePage = 'home';
-    } else if (path.startsWith('/challenges')) {
-        res.locals.activePage = 'challenges';
-    } else if (path.startsWith('/scoreboard')) {
-        res.locals.activePage = 'scoreboard';
-    } else if (path.startsWith('/teams')) {
-        res.locals.activePage = 'team';
-    } else if (path.startsWith('/profile')) {
-        res.locals.activePage = 'profile';
-    } else if (path.startsWith('/admin')) {
-        res.locals.activePage = 'admin';
-    } else if (path.startsWith('/login')) {
-        res.locals.activePage = 'login';
-    } else if (path.startsWith('/register')) {
-        res.locals.activePage = 'register';
-    } else if (path.startsWith('/api')) {
-        res.locals.activePage = 'api';
+
+    const p = req.path;
+    if (p === '/') res.locals.activePage = 'home';
+    else if (p.startsWith('/challenges')) res.locals.activePage = 'challenges';
+    else if (p.startsWith('/scoreboard')) res.locals.activePage = 'scoreboard';
+    else if (p.startsWith('/teams')) res.locals.activePage = 'team';
+    else if (p.startsWith('/profile')) res.locals.activePage = 'profile';
+    else if (p.startsWith('/admin')) res.locals.activePage = 'admin';
+    else res.locals.activePage = p.split('/')[1] || 'home';
+
+    next();
+});
+
+// ================== DATABASE INIT ==================
+db.serialize(() => {
+
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        email TEXT UNIQUE,
+        password TEXT,
+        role TEXT DEFAULT 'user',
+        team_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS teams (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE,
+        password TEXT,
+        creator_id INTEGER,
+        description TEXT,
+        type TEXT DEFAULT 'open',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS challenges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        description TEXT,
+        category TEXT,
+        points INTEGER,
+        flag TEXT,
+        file_path TEXT,
+        visible BOOLEAN DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS solves (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        challenge_id INTEGER,
+        team_id INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS team_activity (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_id INTEGER,
+        user_id INTEGER,
+        action TEXT,
+        performed_by INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS join_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_id INTEGER,
+        user_id INTEGER,
+        message TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // ADMIN DEFAULT
+    db.get("SELECT * FROM users WHERE role = 'admin'", async (err, admin) => {
+        if (!admin) {
+            const hashed = await bcrypt.hash('admin123', 10);
+            db.run(
+                "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
+                ['admin', 'admin@vivy.ctf', hashed, 'admin']
+            );
+            console.log('Admin created: admin / admin123');
+        }
+    });
+});
+
+// ================== ROUTES SAFE LOAD ==================
+function safeRoute(path, route) {
+    try {
+        app.use(path, require(route));
+        console.log(`Loaded route: ${path}`);
+    } catch (err) {
+        console.error(`FAILED load ${route}:`, err.message);
+    }
+}
+
+safeRoute('/', './routes/authRoutes');
+safeRoute('/challenges', './routes/challengeRoutes');
+safeRoute('/teams', './routes/teamRoutes');
+safeRoute('/scoreboard', './routes/scoreboardRoutes');
+safeRoute('/admin', './routes/adminRoutes');
+
+// ================== HOME ==================
+app.get('/', (req, res) => {
+    res.render('index', { title: 'VIVY CTF V2' });
+});
+
+// ================== API ==================
+app.get('/api/stats', (req, res) => {
+    db.get(`
+        SELECT 
+            (SELECT COUNT(*) FROM users) as total_users,
+            (SELECT COUNT(*) FROM challenges) as total_challenges,
+            (SELECT COUNT(*) FROM solves) as total_solves,
+            (SELECT COUNT(*) FROM teams) as total_teams
+    `, (err, stats) => {
+        if (err) return res.json({ success: false, error: err.message });
+        res.json({ success: true, stats });
+    });
+});
+
+// ================== 404 ==================
+app.use((req, res) => {
+    res.status(404).render('404', { title: '404 Not Found' });
+});
+
+// ================== 500 ==================
+app.use((err, req, res, next) => {
+    console.error('SERVER ERROR:', err);
+
+    res.status(500).render('500', {
+        title: 'Server Error',
+        error: err.message || err.toString(),
+        errorStack: err.stack || null
+    });
+});
+
+// ================== GLOBAL ERROR ==================
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT:', err);
+});
+
+process.on('unhandledRejection', (err) => {
+    console.error('UNHANDLED:', err);
+});
+
+// ================== START ==================
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+});        res.locals.activePage = 'api';
     } else if (path === '/404' || path.startsWith('/404')) {
         res.locals.activePage = '404';
     } else {
