@@ -1,0 +1,329 @@
+<%- include('../layout/header') %>
+
+<div class="auth-container">
+    <div class="auth-card">
+        <h2><i class="fas fa-user-plus"></i> Create Account</h2>
+        
+        <form method="POST" action="/register" class="auth-form" id="registerForm">
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-user"></i> Username
+                </label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="Choose a username" minlength="3" maxlength="30"
+                       pattern="[a-zA-Z0-9_]+" title="Only letters, numbers, and underscores">
+                <small class="form-text">3-30 characters, letters, numbers, and underscores only</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">
+                    <i class="fas fa-envelope"></i> Email
+                </label>
+                <input type="email" id="email" name="email" required 
+                       placeholder="Enter your email">
+                <small class="form-text">We'll never share your email with anyone else</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-lock"></i> Password
+                </label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Create a password" minlength="6">
+                <div class="password-strength" id="passwordStrength">
+                    <div class="strength-bar"></div>
+                </div>
+                <small class="form-text">Minimum 6 characters with at least 1 uppercase and 1 number</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirm_password">
+                    <i class="fas fa-lock"></i> Confirm Password
+                </label>
+                <input type="password" id="confirm_password" name="confirm_password" required 
+                       placeholder="Confirm your password">
+                <div class="password-match" id="passwordMatch"></div>
+            </div>
+            
+            <div class="form-group terms-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="terms" required>
+                    <span>I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a></span>
+                </label>
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+                <i class="fas fa-user-plus"></i> Register
+            </button>
+        </form>
+        
+        <div class="auth-links">
+            <p>Already have an account? <a href="/login">Login here</a></p>
+        </div>
+    </div>
+</div>
+
+<style>
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+}
+
+.auth-card {
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 450px;
+    border: 1px solid var(--border);
+}
+
+.auth-card h2 {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: var(--accent-primary);
+}
+
+.auth-card h2 i {
+    margin-right: 0.5rem;
+}
+
+.auth-form .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.auth-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.auth-form label i {
+    margin-right: 0.5rem;
+    color: var(--accent-primary);
+}
+
+.auth-form input[type="text"],
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
+    width: 100%;
+    padding: 0.8rem;
+    background-color: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.auth-form input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(114, 137, 218, 0.3);
+}
+
+.form-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.password-strength {
+    margin-top: 0.5rem;
+    height: 4px;
+    background-color: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.strength-bar {
+    height: 100%;
+    width: 0;
+    transition: all 0.3s ease;
+}
+
+.strength-weak { width: 25%; background-color: var(--error); }
+.strength-fair { width: 50%; background-color: var(--warning); }
+.strength-good { width: 75%; background-color: #4caf50; }
+.strength-strong { width: 100%; background-color: var(--success); }
+
+.password-match {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    min-height: 20px;
+}
+
+.password-match.match {
+    color: var(--success);
+}
+
+.password-match.error {
+    color: var(--error);
+}
+
+.terms-group {
+    margin: 1.5rem 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: auto;
+    margin-right: 0.5rem;
+}
+
+.checkbox-label a {
+    color: var(--accent-primary);
+    text-decoration: none;
+}
+
+.checkbox-label a:hover {
+    text-decoration: underline;
+}
+
+.btn-block {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.auth-links {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+}
+
+.auth-links a {
+    color: var(--accent-primary);
+    text-decoration: none;
+}
+
+.auth-links a:hover {
+    text-decoration: underline;
+}
+
+/* Validation styles */
+input:invalid:not(:placeholder-shown) {
+    border-color: var(--error);
+}
+
+input:valid:not(:placeholder-shown) {
+    border-color: var(--success);
+}
+</style>
+
+<script>
+// Password strength checker
+document.getElementById('password').addEventListener('input', function(e) {
+    const password = e.target.value;
+    const strengthBar = document.querySelector('.strength-bar');
+    
+    // Remove all classes
+    strengthBar.className = 'strength-bar';
+    
+    if (password.length === 0) {
+        strengthBar.style.width = '0';
+        return;
+    }
+    
+    let strength = 0;
+    
+    // Length check
+    if (password.length >= 8) strength += 1;
+    if (password.length >= 12) strength += 1;
+    
+    // Character variety checks
+    if (/[a-z]/.test(password)) strength += 1;
+    if (/[A-Z]/.test(password)) strength += 1;
+    if (/[0-9]/.test(password)) strength += 1;
+    if (/[^a-zA-Z0-9]/.test(password)) strength += 1;
+    
+    // Add class based on strength
+    if (strength <= 2) {
+        strengthBar.classList.add('strength-weak');
+    } else if (strength <= 4) {
+        strengthBar.classList.add('strength-fair');
+    } else if (strength <= 5) {
+        strengthBar.classList.add('strength-good');
+    } else {
+        strengthBar.classList.add('strength-strong');
+    }
+});
+
+// Password match checker
+document.getElementById('confirm_password').addEventListener('input', function(e) {
+    const password = document.getElementById('password').value;
+    const confirm = e.target.value;
+    const matchDiv = document.getElementById('passwordMatch');
+    
+    if (confirm.length === 0) {
+        matchDiv.textContent = '';
+        matchDiv.className = 'password-match';
+        return;
+    }
+    
+    if (password === confirm) {
+        matchDiv.textContent = '✓ Passwords match';
+        matchDiv.className = 'password-match match';
+    } else {
+        matchDiv.textContent = '✗ Passwords do not match';
+        matchDiv.className = 'password-match error';
+    }
+});
+
+// Form validation
+document.getElementById('registerForm').addEventListener('submit', function(e) {
+    const password = document.getElementById('password').value;
+    const confirm = document.getElementById('confirm_password').value;
+    const terms = document.querySelector('input[name="terms"]').checked;
+    
+    if (password !== confirm) {
+        e.preventDefault();
+        alert('Passwords do not match!');
+        return;
+    }
+    
+    if (!terms) {
+        e.preventDefault();
+        alert('You must agree to the Terms of Service');
+        return;
+    }
+});
+
+// Username availability check (optional)
+let usernameTimeout;
+document.getElementById('username').addEventListener('input', function(e) {
+    clearTimeout(usernameTimeout);
+    const username = e.target.value;
+    
+    if (username.length < 3) return;
+    
+    usernameTimeout = setTimeout(async () => {
+        try {
+            const response = await fetch(`/api/check-username?username=${encodeURIComponent(username)}`);
+            const data = await response.json();
+            
+            if (data.available) {
+                // Show success indicator
+                e.target.style.borderColor = 'var(--success)';
+            } else {
+                // Show error indicator
+                e.target.style.borderColor = 'var(--error)';
+                alert('Username already taken!');
+            }
+        } catch (error) {
+            console.error('Error checking username:', error);
+        }
+    }, 500);
+});
+</script>
+
+<%- include('../layout/footer') %>
