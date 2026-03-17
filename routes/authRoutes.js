@@ -110,9 +110,10 @@ const checkLoginAttempts = (req, res, next) => {
 // @route   GET /login
 router.get('/login', isGuest, (req, res) => {
     res.render('auth/login', { 
-        title: 'Login - VIVY CTF V2',
-        activePage: 'login',
-        layout: false
+        title: 'Login - VIVY CTF V2'
+        // activePage is automatically set by middleware to 'login'
+        // user, success, error, currentTheme are from res.locals
+        // layout: false // Remove this if you want to use the main layout
     });
 });
 
@@ -202,9 +203,8 @@ router.post('/login', isGuest, validateLogin, checkLoginAttempts, async (req, re
 // @route   GET /register
 router.get('/register', isGuest, (req, res) => {
     res.render('auth/register', { 
-        title: 'Register - VIVY CTF V2',
-        activePage: 'register',
-        layout: false
+        title: 'Register - VIVY CTF V2'
+        // activePage is automatically set by middleware to 'register'
     });
 });
 
@@ -285,7 +285,7 @@ router.get('/profile', isAuthenticated, async (req, res) => {
 
         res.render('auth/profile', {
             title: 'My Profile - VIVY CTF V2',
-            activePage: 'profile',
+            // activePage is automatically set by middleware to 'profile'
             user: user,
             team: team,
             teamMembers: teamMembers,
@@ -346,9 +346,8 @@ router.post('/profile/update', isAuthenticated, async (req, res) => {
 // @route   GET /forgot-password
 router.get('/forgot-password', isGuest, (req, res) => {
     res.render('auth/forgot-password', {
-        title: 'Forgot Password - VIVY CTF V2',
-        activePage: 'forgot-password',
-        layout: false
+        title: 'Forgot Password - VIVY CTF V2'
+        // activePage is automatically set by middleware to 'forgot-password'
     });
 });
 
@@ -398,9 +397,8 @@ router.get('/reset-password/:token', isGuest, async (req, res) => {
 
         res.render('auth/reset-password', {
             title: 'Reset Password - VIVY CTF V2',
-            activePage: 'reset-password',
-            token: token,
-            layout: false
+            // activePage is automatically set by middleware to 'reset-password'
+            token: token
         });
     } catch (error) {
         console.error('Reset password page error:', error);
