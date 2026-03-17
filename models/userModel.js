@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs');
 
 class User {
 
-    // ================= CREATE USER =================
     static async create(username, email, password) {
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -19,7 +18,6 @@ class User {
         });
     }
 
-    // ================= FIND =================
     static async findByUsername(username) {
         return new Promise((resolve, reject) => {
             db.get(
@@ -59,52 +57,26 @@ class User {
         });
     }
 
-    // ================= PASSWORD =================
     static async validatePassword(user, password) {
         return bcrypt.compare(password, user.password);
     }
 
-    static async updatePassword(userId, newPassword) {
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
+    static async getStats(userId) {
         return new Promise((resolve, reject) => {
-            db.run(
-                'UPDATE users SET password = ? WHERE id = ?',
-                [hashedPassword, userId],
-                function (err) {
-                    if (err) reject(err);
-                    else resolve();
-                }
-            );
+            db.get(`
+                SELECT 
+                    COUNT(*) as solves
+                FROM solves 
+                WHERE user_id = ?
+            `, [userId], (err, row) => {
+                if (err) reject(err);
+                else resolve(row || { solves: 0 });
+            });
         });
     }
+}
 
-    // ================= PROFILE =================
-    static async updateEmail(userId, email) {
-        return new Promise((resolve, reject) => {
-            db.run(
-                'UPDATE users SET email = ? WHERE id = ?',
-                [email, userId],
-                function (err) {
-                    if (err) reject(err);
-                    else resolve();
-                }
-            );
-        });
-    }
-
-    // ================= TEAM =================
-    static async updateTeam(userId, teamId) {
-        return new Promise((resolve, reject) => {
-            db.run(
-                'UPDATE users SET team_id = ? WHERE id = ?',
-                [teamId, userId],
-                function (err) {
-                    if (err) reject(err);
-                    else resolve(this.changes);
-                }
-            );
-        });
+module.exports = User;        });
     }
 
     // ================= STATS =================
